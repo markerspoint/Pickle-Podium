@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react'
-import { seed } from './seed'
 import type { Achievement, Database, Player, Submission } from './types'
 
 /**
@@ -7,17 +6,19 @@ import type { Achievement, Database, Player, Submission } from './types'
  * with no backend. To move to a real database (Supabase, Firebase, your own
  * API…), replace the functions exported from this file — pages only use these.
  */
-const KEY = 'pickle-podium:db:v1'
+const KEY = 'pickle-podium:db:v2'
 const listeners = new Set<() => void>()
+
+const empty = (): Database => ({ players: [], achievements: [], submissions: [] })
 
 function load(): Database {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return { ...structuredClone(seed), ...JSON.parse(raw) }
+    if (raw) return { ...empty(), ...JSON.parse(raw) }
   } catch {
-    /* fall through to seed */
+    /* fall through to an empty database */
   }
-  return structuredClone(seed)
+  return empty()
 }
 
 let db: Database = load()
@@ -118,10 +119,6 @@ export function approveSubmission(s: Submission, replaceId?: string) {
     fictional_example: false,
   })
   updateSubmission({ ...s, status: 'approved' })
-}
-
-export function resetToSampleData() {
-  commit(structuredClone(seed))
 }
 
 // ---- Admin session -------------------------------------------------------

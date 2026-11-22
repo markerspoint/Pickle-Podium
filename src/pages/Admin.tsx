@@ -6,7 +6,7 @@ import { Avatar } from '../components/Avatar'
 import { Badge, Button, buttonClass, Checkbox, Eyebrow, Field, Input, Modal, SampleBadge, Select, Textarea } from '../components/ui'
 import { CSV_COLUMNS, planImport, type ImportPlan } from '../lib/csv'
 import {
-  approveSubmission, deleteAchievement, deletePlayer, findPlayerByName, isAdmin, resetToSampleData, saveAchievement,
+  approveSubmission, deleteAchievement, deletePlayer, findPlayerByName, isAdmin, saveAchievement,
   savePlayer, signIn, signOut, updateSubmission, useDb,
 } from '../lib/store'
 import { DIVISIONS, PLACEMENTS, SKILL_LEVELS, type Achievement, type Division, type Placement, type Player, type SkillLevel, type Submission } from '../lib/types'
@@ -380,10 +380,7 @@ export default function Admin() {
             Add, edit or delete player records and their tournament achievements. Anything you leave unpublished stays hidden from public visitors.
           </p>
         </header>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => confirm('Replace everything with the built-in sample data?') && resetToSampleData()}>Reset to sample data</Button>
-          <Button variant="outline" size="sm" onClick={() => { signOut(); setAuthed(false) }}>Sign out</Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={() => { signOut(); setAuthed(false) }}>Sign out</Button>
       </div>
       <div className="mt-8 flex gap-1 overflow-x-auto border-b border-ink/10" role="tablist">
         {TABS.map((t) => (

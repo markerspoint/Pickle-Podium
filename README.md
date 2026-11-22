@@ -24,8 +24,8 @@ Nothing is fetched from Facebook. Each podium finish has a `proof_url` field —
 submitter) pasted in, usually the organiser's Facebook results post. The **Proof** button just opens
 that link in a new tab.
 
-Data lives in the browser's `localStorage` (`src/lib/store.ts`) and starts with fictional sample
-records tagged "Sample" (`src/lib/seed.ts`). That means each browser has its own copy. To share one
+Data lives in the browser's `localStorage` (`src/lib/store.ts`) and starts empty: add records in
+`/admin` (one by one or by CSV import). Each browser has its own copy. To share one
 database between visitors, replace the functions in `src/lib/store.ts` with calls to a backend
 (Supabase, Firebase, your own API) — the pages only talk to that file.
 
@@ -40,3 +40,8 @@ Bulk import expects a CSV with this header row:
 ```
 full_name,nickname,home_club,city,tournament_name,event_date,placement,skill_level,division,partner_name,proof_url
 ```
+
+## Deploying to Vercel
+
+Import the repository in Vercel; it detects Vite automatically (build `npm run build`, output `dist`).
+`vercel.json` rewrites every path to `index.html` so links like `/players/<id>` work on refresh.
