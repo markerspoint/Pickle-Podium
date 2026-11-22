@@ -3,7 +3,7 @@ import { CircleCheck } from 'lucide-react'
 import { Button, Eyebrow, Field, Input, Select, Textarea } from '../components/ui'
 import { createSubmission } from '../lib/store'
 import { DIVISIONS, PLACEMENT_LABELS, PLACEMENTS, SKILL_LEVELS, SUBMISSION_TYPES, type Division, type Placement, type SkillLevel, type SubmissionType } from '../lib/types'
-import { formatDate, isHttpUrl } from '../lib/utils'
+import { errorMessage, formatDate, isHttpUrl } from '../lib/utils'
 
 const BLANK = {
   submission_type: 'New Achievement' as SubmissionType,
@@ -31,18 +31,23 @@ export default function Submit() {
   const [form, setForm] = useState<Form>(BLANK)
   const [errors, setErrors] = useState<Errors>({})
   const [sent, setSent] = useState<Form | null>(null)
+  const [sending, setSending] = useState(false)
+  const [failure, setFailure] = useState('')
   const set = (k: keyof Form) => (v: string) => {
     setForm((f) => ({ ...f, [k]: v }))
     setErrors((e) => ({ ...e, [k]: undefined }))
   }
   const bad = (k: keyof Form) => (errors[k] ? 'border-destructive' : '')
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     const found = validate(form)
     setErrors(found)
     if (Object.keys(found).length) return
-    createSubmission({
+    setSending(true)
+    setFailure('')
+    try {
+      await createSubmission({
       ...form,
       player_name: form.player_name.trim(),
       partner_name: form.partner_name.trim(),
@@ -52,9 +57,14 @@ export default function Submit() {
       skill_level: form.skill_level as SkillLevel,
       placement: form.placement as Placement,
       division: form.division as Division,
-    })
-    setSent(form)
-    setForm(BLANK)
+      })
+      setSent(form)
+      setForm(BLANK)
+    } catch (err) {
+      setFailure(errorMessage(err))
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -150,8 +160,9 @@ export default function Submit() {
               <Field label="Additional notes (optional)">
                 <Textarea rows={4} value={form.notes} onChange={(e) => set('notes')(e.target.value)} placeholder="Anything an admin should know — the corrected detail, a scoring note, how to reach you." />
               </Field>
+              {failure && <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{failure}</p>}
               <div className="flex flex-wrap items-center gap-4">
-                <Button type="submit" variant="royal">Submit for review</Button>
+                <Button type="submit" variant="royal" disabled={sending}>{sending ? 'Sending…' : 'Submit for review'}</Button>
                 <p className="text-xs leading-relaxed text-athletic">All fields except notes are required. A valid proof link is required.</p>
               </div>
             </form>

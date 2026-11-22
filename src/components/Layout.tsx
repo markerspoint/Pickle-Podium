@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { Menu, ShieldCheck, X } from 'lucide-react'
+import { useStatus } from '../lib/store'
 
 const NAV = [
   { label: 'Home', to: '/' },
@@ -104,11 +105,17 @@ function Footer() {
 }
 
 export default function Layout() {
+  const { ready, error } = useStatus()
   return (
     <div className="flex min-h-screen flex-col bg-mist text-ink">
       <Header />
       <main className="flex-1">
-        <Outlet />
+        {error && (
+          <p role="alert" className="border-b border-destructive/30 bg-destructive/10 px-5 py-3 text-center text-sm text-destructive">
+            The database could not be reached, so records may be missing. ({error})
+          </p>
+        )}
+        {ready ? <Outlet /> : <p className="px-5 py-24 text-center text-sm text-athletic">Loading records…</p>}
       </main>
       <Footer />
     </div>

@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, ExternalLink, Search, X } from 'lucide-react'
 import { Avatar } from '../components/Avatar'
 import { MedalBar } from '../components/MedalBar'
 import { Button, buttonClass, Eyebrow, Input, SampleBadge, Select } from '../components/ui'
 import { useDb } from '../lib/store'
 import { DIVISIONS, PLACEMENTS, SKILL_LEVELS, type Player, type Stats } from '../lib/types'
-import { EMPTY_STATS, statsByPlayer } from '../lib/utils'
+import { EMPTY_STATS, facebookSearchUrl, statsByPlayer } from '../lib/utils'
 
 const NO_FILTERS = { q: '', tournament: '', year: '', skill: '', division: '', placement: '' }
 type Filters = typeof NO_FILTERS
@@ -213,6 +213,15 @@ export default function Players() {
         <div className="mt-4 rounded-md border border-dashed border-ink/15 bg-white p-10 text-center">
           <p className="font-heading text-lg font-bold text-ink">No players match these filters</p>
           <p className="mt-2 text-sm text-athletic">Try clearing a filter or searching a different name.</p>
+          {filters.q.trim() && (
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <a href={facebookSearchUrl(filters.q)} target="_blank" rel="noreferrer" className={buttonClass('outline')}>
+                Search “{filters.q.trim()}” on Facebook
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+              <Link to="/submit" className="text-sm font-medium text-ink underline hover:text-court-deep">Submit a missing result</Link>
+            </div>
+          )}
         </div>
       ) : (
         <div className="mt-4">

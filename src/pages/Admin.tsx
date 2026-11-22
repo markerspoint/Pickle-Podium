@@ -6,16 +6,19 @@ import { Avatar } from '../components/Avatar'
 import { Badge, Button, buttonClass, Checkbox, Eyebrow, Field, Input, Modal, SampleBadge, Select, Textarea } from '../components/ui'
 import { CSV_COLUMNS, planImport, type ImportPlan } from '../lib/csv'
 import {
-  approveSubmission, deleteAchievement, deletePlayer, findPlayerByName, isAdmin, saveAchievement,
-  savePlayer, signIn, signOut, updateSubmission, useDb,
+  approveSubmission, deleteAchievement, deletePlayer, findPlayerByName, importRecords, saveAchievement,
+  savePlayer, signIn, signOut, updateSubmission, useDb, usingSupabase, useStatus,
 } from '../lib/store'
 import { DIVISIONS, PLACEMENTS, SKILL_LEVELS, type Achievement, type Division, type Placement, type Player, type SkillLevel, type Submission } from '../lib/types'
-import { byDateDesc, formatDate, isHttpUrl, statsByPlayer } from '../lib/utils'
+import { byDateDesc, errorMessage, formatDate, isHttpUrl, statsByPlayer } from '../lib/utils'
 
 const th = 'px-3 py-2 text-left font-heading text-[11px] font-bold uppercase tracking-[0.14em] text-athletic'
 const StatusBadge = ({ published }: { published: boolean }) => (
   <Badge className={published ? 'border-court-deep/40 bg-court-soft text-ink' : 'border-ink/15 text-athletic'}>{published ? 'Published' : 'Draft'}</Badge>
 )
+
+/** Runs a save or delete and shows the reason if the database refuses it. */
+const attempt = (action: Promise<unknown>) => action.catch((e) => alert(errorMessage(e)))
 
 // ---- Players -------------------------------------------------------------
 const NEW_PLAYER: Omit<Player, 'id'> = {
@@ -26,11 +29,15 @@ function PlayerForm({ player, onClose }: { player?: Player; onClose: () => void 
   const [f, setF] = useState<Omit<Player, 'id'> & { id?: string }>(player ?? NEW_PLAYER)
   const [error, setError] = useState('')
   const set = <K extends keyof Player>(k: K) => (v: Player[K]) => setF((s) => ({ ...s, [k]: v }))
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!f.full_name.trim()) return setError('A player name is required.')
-    savePlayer({ ...f, full_name: f.full_name.trim() })
-    onClose()
+    try {
+      await savePlayer({ ...f, full_name: f.full_name.trim() })
+      onClose()
+    } catch (err) {
+      setError(errorMessage(err))
+    }
   }
   return (
     <Modal title={player ? 'Edit player' : 'Add a player'} description="Names, club and photo appear on the public players directory and profile page." onClose={onClose}>
@@ -103,7 +110,7 @@ function PlayersTab() {
         <Modal title={`Delete ${removing.full_name}?`} description="This also deletes every podium finish recorded for this player. This cannot be undone." onClose={() => setRemoving(null)}>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setRemoving(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => { deletePlayer(removing.id); setRemoving(null) }}>Delete player</Button>
+            <Button variant="destructive" onClick={() => { attempt(deletePlayer(removing.id)); setRemoving(null) }}>Delete player</Button>
           </div>
         </Modal>
       )}
@@ -121,13 +128,17 @@ function FinishForm({ finish, players, onClose }: { finish?: Achievement; player
   const [f, setF] = useState<Omit<Achievement, 'id'> & { id?: string }>(finish ?? NEW_FINISH)
   const [error, setError] = useState('')
   const set = <K extends keyof Achievement>(k: K) => (v: Achievement[K]) => setF((s) => ({ ...s, [k]: v }))
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!f.player_id) return setError('Choose the player this finish belongs to.')
     if (!f.tournament_name.trim() || !f.event_date) return setError('A tournament name and event date are required.')
     if (f.proof_url.trim() && !isHttpUrl(f.proof_url)) return setError('The proof link must start with http:// or https://')
-    saveAchievement({ ...f, tournament_name: f.tournament_name.trim(), proof_url: f.proof_url.trim() })
-    onClose()
+    try {
+      await saveAchievement({ ...f, tournament_name: f.tournament_name.trim(), proof_url: f.proof_url.trim() })
+      onClose()
+    } catch (err) {
+      setError(errorMessage(err))
+    }
   }
   return (
     <Modal title={finish ? 'Edit podium finish' : 'Add a podium finish'} description="Record the placement exactly as it appears in the official result." onClose={onClose}>
@@ -200,7 +211,7 @@ function FinishesTab() {
                 <td className="p-3">
                   <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="sm" aria-label="Edit finish" onClick={() => setEditing(a)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="sm" aria-label="Delete finish" onClick={() => confirm('Delete this podium finish?') && deleteAchievement(a.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                    <Button variant="ghost" size="sm" aria-label="Delete finish" onClick={() => confirm('Delete this podium finish?') && attempt(deleteAchievement(a.id))}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                   </div>
                 </td>
               </tr>
@@ -223,7 +234,7 @@ function SubmissionCard({ s }: { s: Submission }) {
   const existing = player ? db.achievements.filter((a) => a.player_id === player.id).sort(byDateDesc) : []
   const reject = () => {
     const note = prompt('Reject this submission? Nothing is added to the database. Reason (optional):')
-    if (note !== null) updateSubmission({ ...s, status: 'rejected', admin_note: note })
+    if (note !== null) attempt(updateSubmission({ ...s, status: 'rejected', admin_note: note }))
   }
   return (
     <li className="rounded-md border border-ink/10 bg-white p-5">
@@ -255,7 +266,7 @@ function SubmissionCard({ s }: { s: Submission }) {
                 {existing.map((a) => <option key={a.id} value={a.id}>{a.tournament_name} · {a.placement} · {a.division}</option>)}
               </Select>
             )}
-            <Button size="sm" onClick={() => approveSubmission(s, replaceId || undefined)}>{replaceId ? 'Update the existing record' : 'Approve & publish'}</Button>
+            <Button size="sm" onClick={() => attempt(approveSubmission(s, replaceId || undefined))}>{replaceId ? 'Update the existing record' : 'Approve & publish'}</Button>
             <Button size="sm" variant="ghost" className="text-destructive" onClick={reject}>Reject</Button>
           </>
         )}
@@ -291,12 +302,15 @@ function ImportTab() {
     setDone('')
     setPlan(file ? planImport(await file.text()) : null)
   }
-  const confirmImport = () => {
+  const confirmImport = async () => {
     if (!plan) return
-    plan.players.forEach(savePlayer)
-    plan.achievements.forEach(saveAchievement)
-    setDone(`Imported ${plan.players.length} new players and ${plan.achievements.length} podium finishes.`)
-    setPlan(null)
+    try {
+      await importRecords(plan.players, plan.achievements)
+      setDone(`Imported ${plan.players.length} new players and ${plan.achievements.length} podium finishes.`)
+      setPlan(null)
+    } catch (err) {
+      alert(errorMessage(err))
+    }
   }
   return (
     <div className="max-w-4xl">
@@ -339,25 +353,38 @@ function ImportTab() {
 }
 
 // ---- Page ----------------------------------------------------------------
-function SignIn({ onDone }: { onDone: () => void }) {
-  const [code, setCode] = useState('')
-  const [error, setError] = useState(false)
-  const submit = (e: FormEvent) => {
+function SignIn() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
-    if (signIn(code)) onDone()
-    else setError(true)
+    setBusy(true)
+    setError(await signIn(email.trim(), password))
+    setBusy(false)
   }
   return (
     <div className="mx-auto max-w-sm px-5 py-24">
       <Eyebrow>Admin workspace</Eyebrow>
       <h1 className="mt-3 font-heading text-2xl font-extrabold text-ink">Admin sign-in</h1>
-      <p className="mt-3 text-sm text-athletic">Enter the admin passcode to add, edit or review records.</p>
+      <p className="mt-3 text-sm text-athletic">Sign in to add, edit or review records.</p>
       <form onSubmit={submit} className="mt-6 space-y-4">
-        <Field label="Passcode" error={error ? 'That passcode isn’t right.' : undefined}>
-          <Input type="password" value={code} autoFocus onChange={(e) => { setCode(e.target.value); setError(false) }} />
+        {usingSupabase && (
+          <Field label="Email">
+            <Input type="email" value={email} autoFocus autoComplete="username" onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+        )}
+        <Field label={usingSupabase ? 'Password' : 'Passcode'} error={error || undefined}>
+          <Input type="password" value={password} autoFocus={!usingSupabase} autoComplete="current-password" onChange={(e) => { setPassword(e.target.value); setError('') }} />
         </Field>
-        <Button type="submit" className="w-full">Sign in</Button>
+        <Button type="submit" className="w-full" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</Button>
       </form>
+      {!usingSupabase && (
+        <p className="mt-6 text-xs leading-relaxed text-athletic">
+          No shared database is connected, so records are saved in this browser only. See the README to connect Supabase.
+        </p>
+      )}
     </div>
   )
 }
@@ -366,9 +393,9 @@ const TABS = ['Players', 'Podium finishes', 'Submissions', 'Bulk import'] as con
 
 export default function Admin() {
   const db = useDb()
-  const [authed, setAuthed] = useState(isAdmin)
+  const { admin } = useStatus()
   const [tab, setTab] = useState<(typeof TABS)[number]>('Players')
-  if (!authed) return <SignIn onDone={() => setAuthed(true)} />
+  if (!admin) return <SignIn />
   const pending = db.submissions.filter((s) => s.status === 'pending').length
   return (
     <div className="mx-auto max-w-[120rem] px-5 py-12 lg:px-10 lg:py-16">
@@ -380,7 +407,7 @@ export default function Admin() {
             Add, edit or delete player records and their tournament achievements. Anything you leave unpublished stays hidden from public visitors.
           </p>
         </header>
-        <Button variant="outline" size="sm" onClick={() => { signOut(); setAuthed(false) }}>Sign out</Button>
+        <Button variant="outline" size="sm" onClick={() => signOut()}>Sign out</Button>
       </div>
       <div className="mt-8 flex gap-1 overflow-x-auto border-b border-ink/10" role="tablist">
         {TABS.map((t) => (

@@ -34,3 +34,8 @@ export function isHttpUrl(value = '') {
 }
 
 export const byDateDesc = (a: Achievement, b: Achievement) => b.event_date.localeCompare(a.event_date)
+
+/** Facebook's own search page for a name. Opens on Facebook; nothing is read back into this app. */
+export const facebookSearchUrl = (name: string) => `https://www.facebook.com/search/top/?q=${encodeURIComponent(name.trim())}`
+
+export const errorMessage = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong. Please try again.')

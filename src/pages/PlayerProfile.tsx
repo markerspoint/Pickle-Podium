@@ -1,10 +1,10 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, ExternalLink, ShieldCheck } from 'lucide-react'
 import { AchievementList } from '../components/AchievementList'
 import { Avatar } from '../components/Avatar'
-import { Badge } from '../components/ui'
+import { Badge, buttonClass } from '../components/ui'
 import { useDb } from '../lib/store'
-import { byDateDesc, EMPTY_STATS, statsByPlayer } from '../lib/utils'
+import { byDateDesc, EMPTY_STATS, facebookSearchUrl, statsByPlayer } from '../lib/utils'
 
 export default function PlayerProfile() {
   const { id = '' } = useParams()
@@ -70,6 +70,10 @@ export default function PlayerProfile() {
               </div>
             </div>
           )}
+          <a href={facebookSearchUrl(player.full_name)} target="_blank" rel="noreferrer" className={buttonClass('outline', 'sm', 'mt-6')}>
+            Search this name on Facebook
+            <ExternalLink className="h-3 w-3" />
+          </a>
         </aside>
 
         <div className="min-w-0">
